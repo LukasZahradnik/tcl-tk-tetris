@@ -206,7 +206,7 @@ proc update {} {
             lappend tmp 0
         }
 
-        set free {0}
+        set mult 0
         for {set i 0} {$i < $TABLE_HEIGHT} {incr i} {
             set full 1
             for {set j 0} {$j < $TABLE_WIDTH} {incr j} {
@@ -217,31 +217,17 @@ proc update {} {
             }
 
             if {$full} {
-                lappend free $i
+                incr mult
+                set table [linsert [lreplace $table $i $i] 0 $tmp]
             }
         }
 
-        set last [expr {[llength $free] - 1}]
-        set index [lindex $free $last]
-        for {set i $last} {$i > 0} {incr i -1} {
-            set till [lindex $free [expr {$i - 1}]]
-            lset table [lindex $free $i] $tmp
-            for {set j [expr {[lindex $free $i] - 1}]} {$j > $till} {incr j -1} {
-                lset table $index [lindex $table $j]
-                lset table $j $tmp
-
-                incr index -1
-            }
-        }
-
-        set len [llength $free]
-        if {$len > 1} {
-            set score [expr {$score + $len * $len * 100}]
-        }
+        set score [expr {$score + $mult * $mult * 100}]
 
         set pos_y -4
         set pos_x 2
         set current_shape [lindex $shapes [expr {int(rand()*7)}]]
+
         draw_board
         draw_selected
     }
