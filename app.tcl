@@ -3,9 +3,13 @@ package require Tk
 set TABLE_WIDTH 10
 set TABLE_HEIGHT 20
 
+set QUEUE_LEN 3
+
 set CELL_SIZE 20
 
 set table {}
+set queue {}
+
 set current_shape 0
 set pos_x 0
 set pos_y 0
@@ -33,8 +37,8 @@ set shapes {
         {0 0 0 0}
     } {
         {0 0 0 0}
-        {4 4 0 0}
         {0 4 4 0}
+        {0 0 4 4}
         {0 0 0 0}
     } {
         {0 0 0 0}
@@ -108,12 +112,20 @@ proc change_position {dx dy} {
 }
 
 proc draw_bg {} {
-    global TABLE_HEIGHT TABLE_WIDTH CELL_SIZE
+    global TABLE_HEIGHT TABLE_WIDTH CELL_SIZE QUEUE_LEN
     for {set i 0} {$i < $TABLE_HEIGHT} {incr i} {
         set y [expr {$i * $CELL_SIZE}]
         for {set j 0} {$j < $TABLE_WIDTH} {incr j} {
             set x [expr {$j * $CELL_SIZE}]
             .frame.board create rect $x $y [expr {$x + $CELL_SIZE}] [expr {$y + $CELL_SIZE}] -fill "midnight blue"
+        }
+    }
+
+    for {set i 0} {$i < [expr {($QUEUE_LEN * 5 * 2)}]} {incr i} {
+        set y [expr {$i * $CELL_SIZE}]
+        for {set j 0} {$j < 5} {incr j} {
+            set x [expr {$j * $CELL_SIZE}]
+            .frame.ui.queue create rect $x $y [expr {$x + $CELL_SIZE}] [expr {$y + $CELL_SIZE}] -fill "midnight blue"
         }
     }
 }
@@ -151,7 +163,8 @@ proc draw_board {} {
 }
 
 proc startup {} {
-    global TABLE_HEIGHT TABLE_WIDTH shapes table pos_x pos_y current_shape score
+    global TABLE_HEIGHT TABLE_WIDTH QUEUE_LEN
+    global shapes table pos_x pos_y current_shape score queue
 
     set tmp {}
     for {set j 0} {$j < $TABLE_WIDTH} {incr j} {lappend tmp 0}
@@ -161,6 +174,13 @@ proc startup {} {
         lappend table $tmp
     }
 
+    lset queue {}
+    for {set i 0} {$i < $QUEUE_LEN} {incr i} {
+        lappend queue [expr {int(rand()*7)}]
+    }
+
+    puts $queue
+
     set current_shape [lindex $shapes [expr {int(rand()*7)}]]
     set pos_x 2
     set pos_y -4
@@ -168,11 +188,34 @@ proc startup {} {
 
     draw_board
     draw_selected
+    draw_queue
+}
+
+proc draw_queue {} {
+    global TABLE_HEIGHT TABLE_WIDTH CELL_SIZE QUEUE_LEN
+    global queue colors shapes
+
+    .frame.ui.queue delete queue
+
+    for {set k 0} {$k < $QUEUE_LEN} {incr k} {
+        for {set i 0} {$i < 4} {incr i} {
+            set y [expr {($k * 5 + $i + 1) * $CELL_SIZE}]
+            
+            for {set j 0} {$j < 4} {incr j} {
+                set val [lindex $shapes [lindex $queue $k] $i $j]
+                if {$val != 0} {
+                    set x [expr {$j * $CELL_SIZE}]
+                    .frame.ui.queue create rect $x $y [expr {$x + $CELL_SIZE}] [expr {$y + $CELL_SIZE}] -fill [lindex $colors $val] -tags queue
+                }
+            }
+
+        }
+    }
 }
 
 proc update {} {
     global TABLE_WIDTH TABLE_HEIGHT
-    global pos_x pos_y current_shape colors table shapes score
+    global pos_x pos_y current_shape colors table shapes score queue
     set tmp_y $pos_y
 
     change_position 0 1
@@ -226,8 +269,12 @@ proc update {} {
 
         set pos_y -4
         set pos_x 2
-        set current_shape [lindex $shapes [expr {int(rand()*7)}]]
 
+        lappend queue [expr {int(rand()*7)}]
+        set current_shape [lindex $shapes [lindex $queue 0]]
+        set queue [lreplace $queue 0 0]
+
+        draw_queue
         draw_board
         draw_selected
     }
@@ -244,7 +291,7 @@ proc update {} {
 }
 
 proc main {} {
-    global TABLE_HEIGHT TABLE_WIDTH CELL_SIZE
+    global TABLE_HEIGHT TABLE_WIDTH CELL_SIZE QUEUE_LEN
     global current_shape pos_x pos_y table
 
     wm title . "Tetris"
@@ -257,8 +304,9 @@ proc main {} {
 
     grid [canvas .frame.board -width [expr {$TABLE_WIDTH * $CELL_SIZE}] -height [expr {$TABLE_HEIGHT * $CELL_SIZE}] -background black] -row 0 -column 0
     grid [frame .frame.ui -width 100] -row 0 -column 1
-    grid [label .frame.ui.scorelabel -text "Score:"] -row 0 -column 0
-    grid [label .frame.ui.score -textvariable score] -row 1 -column 0
+    grid [canvas .frame.ui.queue -width [expr {5 * $CELL_SIZE}] -height [expr {($QUEUE_LEN * 5 + 2) * $CELL_SIZE }] -background black] -row 0 -column 0
+    grid [label .frame.ui.scorelabel -text "Score:"] -row 1 -column 0
+    grid [label .frame.ui.score -textvariable score] -row 2 -column 0
 
     bind . <Left> {change_position -1 0}
     bind . <Right> {change_position 1 0}
